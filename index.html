@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa con múltiples capas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; }
+    .layer-toggle {
+      background: white;
+      padding: 6px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([-31.42, -64.18], 11);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  const layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
+
+  const capas = [
+    { nombre: "ZONA", url: "ZONA.json" },
+    { nombre: "DEPARTAMENTOS", url: "DEPARTAMENTOS.json" },
+    { nombre: "CIRCUITO", url: "CIRCUITO.json" },
+    { nombre: "SECCIONALES", url: "SECCIONALES.json" },
+    { nombre: "LOCALIDADES", url: "LOCALIDADES.json" },
+    { nombre: "BARRIOS", url: "BARRIOS.json" },
+  ];
+
+  capas.forEach(capa => {
+    fetch(capa.url)
+      .then(res => res.json())
+      .then(geojson => {
+        const layer = L.geoJSON(geojson, {
+          style: feature => ({
+            color: feature.properties.stroke || "#3388ff",
+            fillColor: feature.properties.fill || "#3388ff",
+            fillOpacity: feature.properties["fill-opacity"] || 0.3,
+            weight: feature.properties["stroke-width"] || 1
+          }),
+          onEachFeature: (feature, layer) => {
+            const props = feature.properties;
+            const content = Object.keys(props)
+              .map(key => `<strong>${key}</strong>: ${props[key]}`)
+              .join('<br>');
+            layer.bindPopup(content);
+          }
+        }).addTo(map);
+        layerControl.addOverlay(layer, capa.nombre);
+      });
+  });
+</script>
+</body>
+</html>
