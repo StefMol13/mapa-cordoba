@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mapa Sanitario - Provincia de Córdoba</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      #page-header {
+        width: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1001;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      #header-blue {
+        background-color: #005288;
+        color: white;
+        padding: 20px 20px;
+        min-height: 50px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: sans-serif;
+      }
+
+      #header-title {
+        font-size: 24px;
+        font-weight: bold;
+        flex-grow: 1;
+      }
+
+      #header-logos {
+        display: flex;
+        align-items: center;
+      }
+
+      .logo-container {
+        margin-left: 20px;
+        display: flex;
+        align-items: center;
+      }
+
+      .logo-container img {
+        height: 50px; /* Ajustado el tamaño de los logos */
+        max-width: none;
+      }
+
+      #header-bars {
+        display: flex;
+        height: 5px;
+        width: 100%;
+      }
+
+      .bar {
+        flex-grow: 1;
+        height: 100%;
+      }
+
+      /* Nuevo contenedor para los filtros */
+      #filters-container {
+        width: 100%;
+        position: relative;
+        background-color: #f8f8f8;
+        padding: 30px 20px; /* Aumentado el padding vertical para más espacio */
+        box-sizing: border-box;
+        z-index: 999;
+        margin-top: 95px; /* Deja espacio para el header fijo */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        display: flex; /* Añadido para centrar el contenido verticalmente si es necesario */
+        align-items: center; /* Centrar verticalmente el layer-controls */
+        justify-content: center; /* Centrar horizontalmente el layer-controls */
+      }
+
+      #layer-controls {
+        background-color: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: center;
+        max-width: fit-content;
+        margin: 0 auto;
+      }
+
+      #layer-controls label {
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      #layer-controls input[type="checkbox"],
+      #layer-controls select {
+        margin-right: 8px;
+        transform: scale(1.1);
+      }
+
+      #layer-controls select {
+        padding: 5px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+
+      /* Altura total del header + contenedor de filtros */
+      /* Altura del header (95px) + altura de filters-container (aprox. 100px ahora con más padding) */
+      /* El 100px se deriva de: 30px (padding top) + 30px (padding bottom) + altura del #layer-controls (aprox. 40px) */
+      #map {
+        height: calc(100vh - 95px - 100px); /* Ajustado el valor aquí */
+        width: 100%;
+      }
+
+      #zona-info {
+        display: none;
+        position: absolute;
+        top: 105px;
+        right: 20px;
+        background: #fff;
+        padding: 12px;
+        border-radius: 8px;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+        font-family: sans-serif;
+        z-index: 1100;
+        width: 280px;
+        flex-direction: column;
+      }
+
+      #zona-titulo {
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 8px;
+        color: #005288;
+        text-align: center;
+      }
+
+      #zona-datos {
+        flex-grow: 1;
+      }
+
+      .popup-estilo {
+        font-family: sans-serif;
+        min-width: 250px;
+      }
+
+      .popup-titulo {
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 16px;
+        color: #005288;
+      }
+
+      .popup-poblacion {
+        font-size: 24px;
+        text-align: center;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+
+      .popup-dato {
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="page-header">
+      <div id="header-blue">
+        <div id="header-title">Mapa Sanitario - Provincia de Córdoba</div>
+        <div id="header-logos">
+          <div class="logo-container">
+            <img src="SecreB.png" alt="Secretaría de Salud" />
+          </div>
+          <div class="logo-container">
+            <img src="13 - HorizontalCTWhite.png" alt="Coordinación Tecnológica" />
+          </div>
+        </div>
+      </div>
+      <div id="header-bars">
+        <div class="bar" style="background-color: #FFDA63;"></div>
+        <div class="bar" style="background-color: #DC3545;"></div>
+        <div class="bar" style="background-color: #007BFF;"></div>
+        </div>
+    </div>
+
+    <div id="filters-container">
+      <div id="layer-controls" class="leaflet-control-layers leaflet-control">
+        <label>
+          <select id="selZONA">
+            <option value="">-- Seleccionar Zona --</option>
+            <option value="all">Todas las Zonas</option>
+            </select>
+        </label>
+
+        <label><input type="checkbox" id="chkCIRCUITO" /> CIRCUITOS</label>
+        <label
+          ><input type="checkbox" id="chkSECCIONALES" /> SECCIONALES</label
+        >
+        <label
+          ><input type="checkbox" id="chkDEPARTAMENTOS" /> DEPARTAMENTOS</label
+        >
+        <label><input type="checkbox" id="chkBARRIOS" /> BARRIOS</label>
+        <label><input type="checkbox" id="chkLOCALIDADES" /> LOCALIDADES</label>
+      </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="zona-info">
+      <div
+        id="zona-titulo"
+        style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #005288;"
+      >
+        Población de Zona
+      </div>
+      <div id="zona-datos"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+      let efectoresData = null;
+      let capaEfectores = null;
+      const capas = {}; // Objeto para almacenar las capas de GeoJSON
+      let allZonasFeatures = []; // Para guardar todas las features de zonas
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const map = L.map('map').setView([-31.42, -64.18], 11);
+
+        const iconoEfector = L.icon({
+          iconUrl: 'hospital.png', // Asegúrate de tener esta imagen en la misma carpeta
+          iconSize: [30, 30],
+          iconAnchor: [15, 30],
+          popupAnchor: [0, -30],
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(map);
+
+        const estilos = (feature) => ({
+          color: feature.properties.stroke || '#3388ff',
+          weight: feature.properties['stroke-width'] || 2,
+          opacity: feature.properties['stroke-opacity'] || 1,
+          fillColor: feature.properties.fill || '#3388ff',
+          fillOpacity: feature.properties['fill-opacity'] || 0.3,
+        });
+
+        // Cargar efectores y zonas
+        Promise.all([
+          fetch('http://localhost:8090/api/efectores').then((res) => res.json()),
+          fetch('http://localhost:8090/api/zonas-con-datos').then((res) => res.json()),
+        ])
+          .then(([efectores, zonas]) => {
+            efectoresData = efectores.features;
+            allZonasFeatures = zonas.features; // Guardar todas las features de zonas
+            poblarSelectorZonas(zonas.features); // Llenar el menú desplegable
+            mostrarTodosEfectores(); // Mostrar todos los efectores al inicio
+          })
+          .catch((error) => {
+            console.error('Error cargando datos iniciales:', error);
+          });
+
+        const archivos = [
+          'CIRCUITO',
+          'SECCIONALES',
+          'DEPARTAMENTOS',
+          'BARRIOS',
+          'LOCALIDADES',
+        ];
+        archivos.forEach((nombre) => {
+          fetch(`${nombre}.json`)
+            .then((res) => res.json())
+            .then((geojson) => {
+              capas[nombre] = L.geoJSON(geojson, {
+                style: estilos,
+                onEachFeature: (feature, layer) => {
+                  const props = feature.properties;
+                  const nom =
+                    props.name || props.NOM_ZONA || props.CODIGO || 'Sin nombre';
+                  layer.bindPopup(`<strong>${nom}</strong>`);
+                },
+              });
+            })
+            .catch((error) => {
+              console.error(`Error cargando ${nombre}.json:`, error);
+            });
+        });
+
+        function poblarSelectorZonas(zonasFeatures) {
+          const selZONA = document.getElementById('selZONA');
+          zonasFeatures.sort((a, b) => {
+            const idA = parseInt((a.properties.name || '').replace('ZONA ', '').trim());
+            const idB = parseInt((b.properties.name || '').replace('ZONA ', '').trim());
+            return idA - idB;
+          });
+
+          zonasFeatures.forEach((feature) => {
+            const zona_id_str = (feature.properties.name || '').replace('ZONA ', '').trim();
+            if (zona_id_str) {
+              const option = document.createElement('option');
+              option.value = zona_id_str;
+              option.textContent = `ZONA ${zona_id_str}`;
+              selZONA.appendChild(option);
+            }
+          });
+
+          selZONA.onchange = (e) => {
+            const selectedValue = e.target.value;
+            if (capas.ZONA && map.hasLayer(capas.ZONA)) {
+              map.removeLayer(capas.ZONA);
+            }
+            document.getElementById('zona-info').style.display = 'none';
+
+            if (selectedValue === 'all') {
+              capas.ZONA = L.geoJSON(
+                {
+                  type: 'FeatureCollection',
+                  features: allZonasFeatures,
+                },
+                {
+                  style: estilos,
+                  onEachFeature: (feature, layer) => {
+                    const zona_id_str_click = (feature.properties.name || '')
+                      .replace('ZONA ', '')
+                      .trim();
+                    const zona_id_click = parseInt(zona_id_str_click) || 0;
+                    layer.on('click', (e) => {
+                      mostrarZonaInfo(feature, zona_id_click, layer);
+                      map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                    });
+                  },
+                }
+              ).addTo(map);
+              mostrarTodosEfectores();
+            } else if (selectedValue) {
+              const selectedFeature = allZonasFeatures.find(f => 
+                (f.properties.name || '').replace('ZONA ', '').trim() === selectedValue
+              );
+              if (selectedFeature) {
+                capas.ZONA = L.geoJSON(selectedFeature, {
+                    style: estilos,
+                    onEachFeature: (feature, layer) => {
+                      const zona_id_str_click = (feature.properties.name || '')
+                        .replace('ZONA ', '')
+                        .trim();
+                      const zona_id_click = parseInt(zona_id_str_click) || 0;
+                      layer.on('click', (e) => {
+                        mostrarZonaInfo(feature, zona_id_click, layer);
+                        map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                      });
+                    },
+                }).addTo(map);
+                
+                const layerForBounds = L.geoJSON(selectedFeature);
+                if (layerForBounds) {
+                    map.fitBounds(layerForBounds.getBounds(), { padding: [20, 20] });
+                }
+                
+                mostrarEfectoresPorZona(parseInt(selectedValue));
+                mostrarZonaInfo(selectedFeature, parseInt(selectedValue), null);
+              }
+            } else {
+              mostrarTodosEfectores();
+              document.getElementById('zona-info').style.display = 'none';
+            }
+          };
+        }
+
+        document.getElementById('chkCIRCUITO').onchange = (e) =>
+          toggleLayer('CIRCUITO', e.target.checked);
+        document.getElementById('chkSECCIONALES').onchange = (e) =>
+          toggleLayer('SECCIONALES', e.target.checked);
+        document.getElementById('chkDEPARTAMENTOS').onchange = (e) =>
+          toggleLayer('DEPARTAMENTOS', e.target.checked);
+        document.getElementById('chkBARRIOS').onchange = (e) =>
+          toggleLayer('BARRIOS', e.target.checked);
+        document.getElementById('chkLOCALIDADES').onchange = (e) =>
+          toggleLayer('LOCALIDADES', e.target.checked);
+
+        function toggleLayer(nombre, visible) {
+          if (!capas[nombre]) return;
+          if (visible) {
+            capas[nombre].addTo(map);
+          } else {
+            map.removeLayer(capas[nombre]);
+          }
+        }
+
+        function mostrarTodosEfectores() {
+          if (!efectoresData) {
+            console.error('❌ efectoresData no está cargado todavía para mostrar todos los efectores.');
+            return;
+          }
+          if (capaEfectores) {
+            map.removeLayer(capaEfectores);
+          }
+
+          capaEfectores = L.geoJSON(
+            {
+              type: 'FeatureCollection',
+              features: efectoresData,
+            },
+            {
+              pointToLayer: (feature, latlng) =>
+                L.marker(latlng, { icon: iconoEfector }),
+              onEachFeature: (feature, layer) => {
+                const props = feature.properties;
+                const textoBasico = `
+                  <div class="popup-estilo">
+                    <div class="popup-titulo">${
+                      props.centro || 'Centro de Salud'
+                    }</div>
+                    <div><b>Institución:</b> ${props.institucion || 'S/D'}</div>
+                    <div><b>Tipo:</b> ${props.tipo || 'S/D'}</div>
+                    <div><b>Dirección:</b> ${props.direccion || 'S/D'}</div>
+                    <div><b>Horario:</b> ${props.horario || 'S/D'}</div>
+                  </div>
+                `;
+                layer.bindPopup(textoBasico);
+
+                layer.on('click', (e) => {
+                  e.originalEvent.preventDefault();
+                  e.originalEvent.stopPropagation();
+
+                  const datosCentro = {
+                    nombre: props.centro || 'Centro de Salud',
+                    poblacion: 14790,
+                    mujeres: 7606,
+                    hombres: 7184,
+                    sin_cobertura: 8874,
+                    hogares: 4044,
+                    hogares_nbi: 323,
+                  };
+
+                  const popupContent = crearPopupCentroSalud(datosCentro);
+                  layer.setPopupContent(popupContent).openPopup();
+                });
+              },
+            }
+          ).addTo(map);
+        }
+
+        function mostrarEfectoresPorZona(zonaId) {
+          if (!efectoresData) {
+            console.error('❌ efectoresData no está cargado todavía.');
+            return;
+          }
+          if (capaEfectores) {
+            map.removeLayer(capaEfectores);
+          }
+
+          const efectoresEnZona = efectoresData.filter((e) => {
+            try {
+              return parseInt(e.properties?.zona) === zonaId;
+            } catch (error) {
+              console.error('Error al procesar zona del efector:', e, error);
+              return false;
+            }
+          });
+
+          capaEfectores = L.geoJSON(
+            {
+              type: 'FeatureCollection',
+              features: efectoresEnZona,
+            },
+            {
+              pointToLayer: (feature, latlng) =>
+                L.marker(latlng, { icon: iconoEfector }),
+              onEachFeature: (feature, layer) => {
+                const props = feature.properties;
+                const textoBasico = `
+                  <div class="popup-estilo">
+                    <div class="popup-titulo">${
+                      props.centro || 'Centro de Salud'
+                    }</div>
+                    <div><b>Institución:</b> ${props.institucion || 'S/D'}</div>
+                    <div><b>Tipo:</b> ${props.tipo || 'S/D'}</div>
+                    <div><b>Dirección:</b> ${props.direccion || 'S/D'}</div>
+                    <div><b>Horario:</b> ${props.horario || 'S/D'}</div>
+                  </div>
+                `;
+                layer.bindPopup(textoBasico);
+
+                layer.on('click', (e) => {
+                  e.originalEvent.preventDefault();
+                  e.originalEvent.stopPropagation();
+
+                  const datosCentro = {
+                    nombre: props.centro || 'Centro de Salud',
+                    poblacion: 14790,
+                    mujeres: 7606,
+                    hombres: 7184,
+                    sin_cobertura: 8874,
+                    hogares: 4044,
+                    hogares_nbi: 323,
+                  };
+
+                  const popupContent = crearPopupCentroSalud(datosCentro);
+                  layer.setPopupContent(popupContent).openPopup();
+                });
+              },
+            }
+          ).addTo(map);
+        }
+
+        function mostrarZonaInfo(feature, id, layer) {
+          if (!efectoresData) {
+            console.error('❌ efectoresData no está cargado todavía');
+            return;
+          }
+
+          const p = feature.properties;
+
+          const zonaInfoHtml = `
+            <div style="font-size: 28px; font-weight: bold; text-align: center; color: #005288; margin-bottom: 10px;">
+              ${p.poblacion?.toLocaleString('es-AR') ?? 'S/D'}
+            </div>
+            <div style="font-size: 14px; line-height: 1.5;">
+              <div><b style="color:#E5B8D9;">Mujeres:</b> ${p.mujeres?.toLocaleString('es-AR') ?? 'S/D'} <span style="color:gray">(${porcentaje(p.mujeres, p.poblacion)}%)</span></div>
+              <div><b style="color:#3C5AB7;">Varones:</b> ${p.varones?.toLocaleString('es-AR') ?? 'S/D'} <span style="color:gray">(${porcentaje(p.varones, p.poblacion)}%)</span></div>
+              <div><b>Hogares:</b> ${p.hogares?.toLocaleString('es-AR') ?? 'S/D'} <span style="color:gray">(${porcentaje(p.hogares, p.poblacion)}%)</span></div>
+              <div><b>Hogares NBI:</b> ${p.hogares_nbi?.toLocaleString('es-AR') ?? 'S/D'} <span style="color:gray">(${porcentaje(p.hogares_nbi, p.poblacion)}%)</span></div>
+              <div><b>Sin Cobertura:</b> ${p.cobertura?.toLocaleString('es-AR') ?? 'S/D'} <span style="color:gray">(${porcentaje(p.cobertura, p.poblacion)}%)</span></div>
+            </div>
+          `;
+
+          document.getElementById('zona-titulo').textContent = `Población de Zona ${id}`;
+          document.getElementById('zona-datos').innerHTML = zonaInfoHtml;
+          document.getElementById('zona-info').style.display = 'flex';
+
+          mostrarEfectoresPorZona(id);
+        }
+
+        function crearPopupCentroSalud(datos) {
+          return `
+            <div class="popup-estilo">
+              <div class="popup-titulo">${
+                datos.nombre || 'Centro de Salud'
+              }</div>
+              <div class="popup-poblacion">${
+                datos.poblacion?.toLocaleString() || '0'
+              }</div>
+              <div class="popup-dato"><b>Pob. Cobertura Pública Excl:</b> ${
+                datos.sin_cobertura || '0'
+              } | ${porcentaje(datos.sin_cobertura, datos.poblacion)}%</div>
+              <div class="popup-dato"><b>Mujeres:</b> ${
+                datos.mujeres || '0'
+              } | ${porcentaje(datos.mujeres, datos.poblacion)}%</div>
+              <div class="popup-dato"><b>Hombres:</b> ${
+                datos.hombres || '0'
+              } | ${porcentaje(datos.hombres, datos.poblacion)}%</div>
+              <div class="popup-dato"><b>Hogares:</b> ${
+                datos.hogares || '0'
+              } | ${porcentaje(datos.hogares, datos.poblacion)}%</div>
+              <div class="popup-dato"><b>Hogares NBI:</b> ${
+                datos.hogares_nbi || '0'
+              } | ${porcentaje(datos.hogares_nbi, datos.poblacion)}%</div>
+            </div>
+          `;
+        }
+
+        function porcentaje(parte, total) {
+          if (isNaN(parte) || isNaN(total) || total === 0) return '0';
+          return ((parte / total) * 100).toFixed(2);
+        }
+      });
+    </script>
+  </body>
+</html>

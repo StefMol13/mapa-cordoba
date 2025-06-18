@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mapa Sanitario - Provincia de Córdoba</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body { margin: 0; padding: 0; font-family: sans-serif; }
+    #header {
+  width: 100%;
+  height: 100px;
+  overflow: hidden;
+}
+
+#header img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+    #header h1 {
+      flex: 1;
+      text-align: center;
+      font-size: 1.5em;
+      margin: 0;
+    }
+    #map { height: calc(100vh - 90px); }
+  </style>
+</head>
+<body>
+  <div id="header">
+  <img src="Header CT.png" alt="Encabezado Secretaría de Salud" />
+    </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([-31.42, -64.18], 11);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    const layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
+
+    const customIcon = L.icon({
+      iconUrl: 'hospital.png',
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32]
+    });
+
+    const capas = [
+      { nombre: "ZONA", url: "ZONA.json" },
+      { nombre: "DEPARTAMENTOS", url: "DEPARTAMENTOS.json" },
+      { nombre: "CIRCUITO", url: "CIRCUITO.json" },
+      { nombre: "SECCIONALES", url: "SECCIONALES.json" },
+      { nombre: "LOCALIDADES", url: "LOCALIDADES.json" },
+      { nombre: "BARRIOS", url: "BARRIOS.json" },
+    ];
+
+    capas.forEach(capa => {
+      fetch(capa.url)
+        .then(res => res.json())
+        .then(geojson => {
+          const layer = L.geoJSON(geojson, {
+            pointToLayer: (feature, latlng) => {
+              return L.marker(latlng, { icon: customIcon });
+            },
+            style: feature => ({
+              color: feature.properties.stroke || "#3388ff",
+              fillColor: feature.properties.fill || "#3388ff",
+              fillOpacity: feature.properties["fill-opacity"] || 0.3,
+              weight: feature.properties["stroke-width"] || 1
+            }),
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties;
+              const content = Object.keys(props)
+                .map(key => `<strong>${key}</strong>: ${props[key]}`)
+                .join('<br>');
+              layer.bindPopup(content);
+            }
+          }).addTo(map);
+          layerControl.addOverlay(layer, capa.nombre);
+        });
+    });
+  </script>
+</body>
+</html>
